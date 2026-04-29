@@ -105,7 +105,6 @@ export default function Home() {
       </header>
 
       <main>
-        {/* Hero Section: Brutalist / High-Contrast */}
         <section className="relative pt-32 pb-24 overflow-hidden">
           <div className="mx-auto max-w-7xl px-6">
             <motion.div
@@ -138,19 +137,20 @@ export default function Home() {
                 variants={itemVariants}
                 className="flex flex-wrap gap-4"
               >
-                <Button
-                  size="lg"
-                  className="h-14 rounded-none px-8 text-sm font-mono uppercase tracking-widest bg-primary text-black hover:bg-white transition-all shadow-[8px_8px_0px_0px_rgba(255,255,255,0.1)] hover:shadow-none hover:translate-x-[4px] hover:translate-y-[4px]"
-                >
-                  <PlatformIcon className="mr-3 size-5" />
-                  Get Sonixy for {platform}
-                </Button>
+                <Link href="https://codeberg.org/sker/sonixy/releases">
+                  <Button
+                    size="lg"
+                    className="h-14 rounded-none px-8 text-sm font-mono uppercase tracking-widest bg-primary text-black hover:bg-white transition-all shadow-[8px_8px_0px_0px_rgba(255,255,255,0.1)] hover:shadow-none hover:translate-x-[4px] hover:translate-y-[4px]"
+                  >
+                    <PlatformIcon className="mr-3 size-5" />
+                    Get Sonixy for {platform}
+                  </Button>
+                </Link>
               </motion.div>
             </motion.div>
           </div>
         </section>
 
-        {/* The Workflow: Direct-to-DAW */}
         <section
           id="features"
           className="py-24 border-t border-white/5 bg-[#080808]"
@@ -204,7 +204,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Features Grid: Industrial / Utilitarian */}
         <section className="py-24 border-t border-white/5">
           <div className="mx-auto max-w-7xl px-6">
             <div className="mb-20">
@@ -255,7 +254,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Footer / CTA */}
         <footer className="py-24 border-t border-white/5 bg-[#050505] relative overflow-hidden">
           <div className="absolute inset-0 bg-primary/5 [mask-image:radial-gradient(circle_at_center,transparent_0%,black_100%)]" />
           <div className="mx-auto max-w-7xl px-6 text-center relative z-10">
