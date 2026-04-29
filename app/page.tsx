@@ -289,7 +289,7 @@ export default function Home() {
                     (mirror)
                   </a>
                 </div>
-                <span>Build 2026.04</span>
+                <span>Build 0.1</span>
               </div>
             </div>
             <br />
