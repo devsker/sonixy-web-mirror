@@ -40,12 +40,20 @@ export default function Home() {
     "Windows" | "macOS" | "Linux" | "Desktop"
   >("Desktop");
   const [pwywOpen, setPwywOpen] = React.useState(false);
+  const [version, setVersion] = React.useState<string>("0.2.1");
 
   React.useEffect(() => {
     const userAgent = window.navigator.userAgent.toLowerCase();
     if (userAgent.indexOf("win") !== -1) setPlatform("Windows");
     else if (userAgent.indexOf("mac") !== -1) setPlatform("macOS");
     else if (userAgent.indexOf("linux") !== -1) setPlatform("Linux");
+
+    fetch("/api/latest-release")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.version) setVersion(data.version);
+      })
+      .catch(console.error);
   }, []);
 
   const PlatformIcon =
@@ -276,7 +284,7 @@ export default function Home() {
                     (mirror)
                   </a>
                 </div>
-                <span>Build 0.2.1</span>
+                <span>Build {version}</span>
               </div>
             </div>
             <br />
