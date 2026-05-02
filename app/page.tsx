@@ -16,6 +16,7 @@ import { SiLinux, SiApple } from "react-icons/si";
 import { Button } from "@/components/ui/button";
 import { FaMicrosoft } from "react-icons/fa";
 import Link from "next/link";
+import { PwywDialog } from "@/components/pwyw-dialog";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -38,6 +39,7 @@ export default function Home() {
   const [platform, setPlatform] = React.useState<
     "Windows" | "macOS" | "Linux" | "Desktop"
   >("Desktop");
+  const [pwywOpen, setPwywOpen] = React.useState(false);
 
   React.useEffect(() => {
     const userAgent = window.navigator.userAgent.toLowerCase();
@@ -89,17 +91,13 @@ export default function Home() {
             >
               Source
             </a>
-            <Link
-              href="https://codeberg.org/sker/sonixy/releases"
-              prefetch={true}
+            <Button
+              size="sm"
+              onClick={() => setPwywOpen(true)}
+              className="h-7 rounded-none px-3 text-[10px] font-mono bg-white text-black hover:bg-primary"
             >
-              <Button
-                size="sm"
-                className="h-7 rounded-none px-3 text-[10px] font-mono bg-white text-black hover:bg-primary"
-              >
-                Download
-              </Button>
-            </Link>
+              Download
+            </Button>
           </nav>
         </div>
       </header>
@@ -137,15 +135,14 @@ export default function Home() {
                 variants={itemVariants}
                 className="flex flex-wrap gap-4"
               >
-                <Link href="https://codeberg.org/sker/sonixy/releases">
-                  <Button
-                    size="lg"
-                    className="h-14 rounded-none px-8 text-sm font-mono uppercase tracking-widest bg-primary text-black hover:bg-white transition-all shadow-[8px_8px_0px_0px_rgba(255,255,255,0.1)] hover:shadow-none hover:translate-x-[4px] hover:translate-y-[4px]"
-                  >
-                    <PlatformIcon className="mr-3 size-5" />
-                    Get Sonixy for {platform}
-                  </Button>
-                </Link>
+                <Button
+                  size="lg"
+                  onClick={() => setPwywOpen(true)}
+                  className="h-14 rounded-none px-8 text-sm font-mono uppercase tracking-widest bg-primary text-black hover:bg-white transition-all shadow-[8px_8px_0px_0px_rgba(255,255,255,0.1)] hover:shadow-none hover:translate-x-[4px] hover:translate-y-[4px]"
+                >
+                  <PlatformIcon className="mr-3 size-5" />
+                  Get Sonixy for {platform}
+                </Button>
               </motion.div>
             </motion.div>
           </div>
@@ -262,17 +259,13 @@ export default function Home() {
               <span className="text-primary">EASILY.</span>
             </h2>
             <div className="flex flex-col items-center gap-8">
-              <Link
-                href="https://codeberg.org/sker/sonixy/releases"
-                prefetch={true}
+              <Button
+                size="lg"
+                onClick={() => setPwywOpen(true)}
+                className="h-16 rounded-none px-12 text-sm font-mono uppercase tracking-[0.2em] bg-white text-black hover:bg-primary transition-all shadow-[12px_12px_0px_0px_rgba(255,255,255,0.05)] hover:shadow-none"
               >
-                <Button
-                  size="lg"
-                  className="h-16 rounded-none px-12 text-sm font-mono uppercase tracking-[0.2em] bg-white text-black hover:bg-primary transition-all shadow-[12px_12px_0px_0px_rgba(255,255,255,0.05)] hover:shadow-none"
-                >
-                  Download Now <ArrowRight className="ml-3 size-5" />
-                </Button>
-              </Link>
+                Download Now <ArrowRight className="ml-3 size-5" />
+              </Button>
 
               <div className="flex gap-12 font-mono text-[10px] tracking-widest uppercase text-zinc-400">
                 <div className="flex gap-2">
@@ -302,6 +295,8 @@ export default function Home() {
           </div>
         </footer>
       </main>
+
+      <PwywDialog platform={platform} open={pwywOpen} onOpenChange={setPwywOpen} />
     </div>
   );
 }
