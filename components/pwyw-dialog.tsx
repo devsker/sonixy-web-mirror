@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowRight, ChevronDown } from "lucide-react";
+import { ArrowRight, ChevronDown, Copy, Check } from "lucide-react";
 
 interface Binary {
   name: string;
@@ -25,19 +25,41 @@ interface PwywDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
+const CopyableCommand = ({ command }: { command: string }) => {
+  const [copied, setCopied] = React.useState(false);
+
+  const copy = () => {
+    navigator.clipboard.writeText(command);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <button
+      onClick={copy}
+      className="w-full group relative flex items-center justify-between p-3 border border-white/10 bg-white/5 hover:border-primary hover:bg-primary/5 transition-all text-left"
+      title="Click to copy"
+    >
+      <code className="text-xs font-mono text-zinc-300 group-hover:text-white transition-colors">
+        {command}
+      </code>
+      <div className="flex items-center justify-center size-8 rounded group-hover:bg-white/5 transition-colors">
+        {copied ? (
+          <Check className="size-3.5 text-primary" />
+        ) : (
+          <Copy className="size-3.5 text-zinc-500 group-hover:text-zinc-300" />
+        )}
+      </div>
+    </button>
+  );
+};
+
 export function PwywDialog({ platform, open, onOpenChange }: PwywDialogProps) {
   const [amount, setAmount] = useState<number | null>(null);
   const [customAmount, setCustomAmount] = useState("");
   const [stage, setStage] = useState<"amount" | "payment" | "format">("amount");
   const [binaries, setBinaries] = useState<Binaries | null>(null);
-  const [selectedBinary, setSelectedBinary] = useState<Binary | null>(null);
   const [showOther, setShowOther] = useState(false);
-
-  useEffect(() => {
-    if (open) {
-      fetchBinaries();
-    }
-  }, [open]);
 
   const fetchBinaries = async () => {
     try {
@@ -49,6 +71,12 @@ export function PwywDialog({ platform, open, onOpenChange }: PwywDialogProps) {
       console.error("Error fetching binaries:", error);
     }
   };
+
+  useEffect(() => {
+    if (open) {
+      fetchBinaries();
+    }
+  }, [open]);
 
   const getPlatformBinaries = () => {
     if (!binaries) return [];
@@ -90,7 +118,6 @@ export function PwywDialog({ platform, open, onOpenChange }: PwywDialogProps) {
   };
 
   const handleSelectBinary = (binary: Binary) => {
-    setSelectedBinary(binary);
     window.location.href = binary.browser_download_url;
     onOpenChange(false);
   };
@@ -244,6 +271,19 @@ export function PwywDialog({ platform, open, onOpenChange }: PwywDialogProps) {
                 </div>
               )}
 
+              {/* AUR Options for Linux */}
+              {platform === "Linux" && (
+                <div>
+                  <p className="text-xs font-mono uppercase tracking-widest text-zinc-500 mb-3">
+                    Arch Linux (AUR)
+                  </p>
+                  <div className="space-y-2">
+                    <CopyableCommand command="yay sonixy-bin" />
+                    <CopyableCommand command="yay sonixy-git" />
+                  </div>
+                </div>
+              )}
+
               {/* Other formats */}
               {otherBinaries.length > 0 && (
                 <div>
@@ -284,7 +324,6 @@ export function PwywDialog({ platform, open, onOpenChange }: PwywDialogProps) {
                 <Button
                   onClick={() => {
                     setStage(finalAmount && finalAmount > 0 ? "payment" : "amount");
-                    setSelectedBinary(null);
                   }}
                   className="flex-1 h-10 rounded-none border border-white/10 bg-transparent text-white hover:bg-white/5"
                 >
