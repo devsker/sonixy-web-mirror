@@ -1,10 +1,13 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowRight, ChevronDown, Copy, Check } from "lucide-react";
+import { ArrowRight, Copy, Check, Download, Star } from "lucide-react";
+import { SiLinux, SiApple } from "react-icons/si";
+import { FaMicrosoft } from "react-icons/fa";
 
 interface Binary {
   name: string;
@@ -25,6 +28,21 @@ interface PwywDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
+function isRecommended(name: string, os: OsKey): boolean {
+  const n = name.toLowerCase();
+  if (os === "Windows") return n.includes("setup") && n.endsWith(".exe");
+  if (os === "macOS")   return n.endsWith(".dmg");
+  return false;
+}
+
+const OS_TABS = [
+  { key: "Windows", label: "Windows", icon: FaMicrosoft },
+  { key: "macOS",   label: "macOS",   icon: SiApple },
+  { key: "Linux",   label: "Linux",   icon: SiLinux },
+] as const;
+
+type OsKey = (typeof OS_TABS)[number]["key"];
+
 const CopyableCommand = ({ command }: { command: string }) => {
   const [copied, setCopied] = React.useState(false);
 
@@ -37,17 +55,17 @@ const CopyableCommand = ({ command }: { command: string }) => {
   return (
     <button
       onClick={copy}
-      className="w-full group relative flex items-center justify-between p-3 border border-white/10 bg-white/5 hover:border-primary hover:bg-primary/5 transition-all text-left"
+      className="w-full group flex items-center justify-between px-4 py-3 rounded-xl border border-white/[0.08] bg-white/[0.04] hover:bg-white/[0.08] transition-colors text-left"
       title="Click to copy"
     >
-      <code className="text-xs font-mono text-zinc-300 group-hover:text-white transition-colors">
+      <code className="text-[13px] font-mono text-white/60 group-hover:text-white transition-colors">
         {command}
       </code>
-      <div className="flex items-center justify-center size-8 rounded group-hover:bg-white/5 transition-colors">
+      <div className="flex items-center justify-center size-7 rounded-lg group-hover:bg-white/[0.06] transition-colors shrink-0">
         {copied ? (
-          <Check className="size-3.5 text-primary" />
+          <Check className="size-3.5 text-white/60" />
         ) : (
-          <Copy className="size-3.5 text-zinc-500 group-hover:text-zinc-300" />
+          <Copy className="size-3.5 text-white/25 group-hover:text-white/50" />
         )}
       </div>
     </button>
@@ -59,61 +77,33 @@ export function PwywDialog({ platform, open, onOpenChange }: PwywDialogProps) {
   const [customAmount, setCustomAmount] = useState("");
   const [stage, setStage] = useState<"amount" | "payment" | "format">("amount");
   const [binaries, setBinaries] = useState<Binaries | null>(null);
-  const [showOther, setShowOther] = useState(false);
-
-  const fetchBinaries = async () => {
-    try {
-      const response = await fetch("/api/latest-release");
-      if (!response.ok) throw new Error("Failed to fetch binaries");
-      const data = await response.json();
-      setBinaries(data.binaries);
-    } catch (error) {
-      console.error("Error fetching binaries:", error);
-    }
-  };
+  const [activeOs, setActiveOs] = useState<OsKey>(
+    platform === "Desktop" ? "Windows" : platform
+  );
 
   useEffect(() => {
-    if (open) {
-      fetchBinaries();
-    }
+    if (platform !== "Desktop") setActiveOs(platform);
+  }, [platform]);
+
+  useEffect(() => {
+    if (!open) return;
+    fetch("/api/latest-release")
+      .then((r) => r.json())
+      .then((d) => setBinaries(d.binaries))
+      .catch(console.error);
   }, [open]);
 
-  const getPlatformBinaries = () => {
-    if (!binaries) return [];
-    if (platform === "Linux") return binaries.Linux;
-    if (platform === "macOS") return binaries.macOS;
-    if (platform === "Windows") return binaries.Windows;
-    return [];
-  };
-
-  const getOtherBinaries = () => {
-    if (!binaries) return [];
-    return [
-      ...binaries.Linux.filter((b) => !getPlatformBinaries().includes(b)),
-      ...binaries.macOS.filter((b) => !getPlatformBinaries().includes(b)),
-      ...binaries.Windows.filter((b) => !getPlatformBinaries().includes(b)),
-      ...binaries.Other,
-    ];
-  };
-
   const handleAmountContinue = () => {
-    const finalAmount = customAmount ? parseFloat(customAmount) : amount;
-    if (finalAmount === null) return;
-
-    if (finalAmount === 0 || finalAmount <= 0) {
-      // Free - go straight to format selection
-      setStage("format");
-    } else {
-      // Paid - go to payment first
-      setStage("payment");
-    }
+    const final = customAmount ? parseFloat(customAmount) : amount;
+    if (final === null) return;
+    if (final <= 0) setStage("format");
+    else setStage("payment");
   };
 
   const handlePaymentContinue = () => {
-    const finalAmount = customAmount ? parseFloat(customAmount) : amount;
-    if (!finalAmount || finalAmount <= 0) return;
-
-    window.open(`https://www.paypal.me/proxyscripts/${finalAmount}`, "_blank");
+    const final = customAmount ? parseFloat(customAmount) : amount;
+    if (!final || final <= 0) return;
+    window.open(`https://www.paypal.me/proxyscripts/${final}`, "_blank");
     setStage("format");
   };
 
@@ -123,216 +113,231 @@ export function PwywDialog({ platform, open, onOpenChange }: PwywDialogProps) {
   };
 
   const finalAmount = customAmount ? parseFloat(customAmount) : amount;
-  const platformBinaries = getPlatformBinaries();
-  const otherBinaries = getOtherBinaries();
+  const activeBinaries: Binary[] = binaries?.[activeOs] ?? [];
+
+  const [contentHeight, setContentHeight] = React.useState<number | undefined>(undefined);
+  const roRef = React.useRef<ResizeObserver | null>(null);
+
+  const contentRef = React.useCallback((node: HTMLDivElement | null) => {
+    if (roRef.current) {
+      roRef.current.disconnect();
+    }
+    if (node) {
+      const ro = new ResizeObserver(([entry]) => {
+        setContentHeight(entry.contentRect.height);
+      });
+      ro.observe(node);
+      roRef.current = ro;
+    }
+  }, []);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full max-w-2xl rounded-none border border-white/10 bg-[#050505] p-8 max-h-[90vh] overflow-y-auto">
-        {stage === "amount" && (
-          <>
-            <DialogHeader>
-              <DialogTitle className="text-2xl font-black text-white uppercase tracking-tighter">
-                Support Sonixy
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-6">
-              <p className="text-sm text-zinc-400">
-                Pay what you want. Every bit helps keep development going.
-              </p>
-
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  {[
-                    { label: "Free", value: 0 },
-                    { label: "$3", value: 3 },
-                    { label: "$7", value: 7 },
-                    { label: "$15", value: 15 },
-                  ].map((chip) => (
-                    <button
-                      key={chip.value}
-                      onClick={() => {
-                        setAmount(chip.value);
-                        setCustomAmount("");
-                      }}
-                      className={`py-3 px-4 text-sm font-mono uppercase tracking-wide transition-all border ${
-                        amount === chip.value && !customAmount
-                          ? "border-primary bg-primary text-black"
-                          : "border-white/10 bg-transparent text-white hover:border-primary/50"
-                      }`}
-                    >
-                      {chip.label}
-                    </button>
-                  ))}
-                </div>
-
-                <div>
-                  <label className="block text-xs font-mono uppercase tracking-widest text-zinc-500 mb-2">
-                    Custom Amount
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <span className="text-zinc-400">$</span>
-                    <Input
-                      type="number"
-                      placeholder="Enter amount"
-                      value={customAmount}
-                      onChange={(e) => {
-                        setCustomAmount(e.target.value);
-                        setAmount(null);
-                      }}
-                      min="0"
-                      step="0.01"
-                      className="rounded-none border border-white/10 bg-transparent px-3 py-2 text-sm text-white placeholder:text-zinc-600"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <Button
-                  onClick={() => onOpenChange(false)}
-                  className="flex-1 h-10 rounded-none border border-white/10 bg-transparent text-white hover:bg-white/5"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleAmountContinue}
-                  disabled={amount === null && !customAmount}
-                  className="flex-1 h-10 rounded-none bg-primary text-black hover:bg-white disabled:opacity-50"
-                >
-                  Continue
-                  <ArrowRight className="ml-2 size-4" />
-                </Button>
-              </div>
-            </div>
-          </>
-        )}
-
-        {stage === "payment" && (
-          <>
-            <DialogHeader>
-              <DialogTitle className="text-2xl font-black text-white uppercase tracking-tighter">
-                Complete Payment
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-6">
-              <div className="rounded border border-primary/30 bg-primary/5 p-4">
-                <p className="text-sm text-zinc-300">
-                  Open PayPal to complete your ${finalAmount} payment. You'll return here to choose your download format.
-                </p>
-              </div>
-
-              <div className="flex gap-3">
-                <Button
-                  onClick={() => setStage("amount")}
-                  className="flex-1 h-10 rounded-none border border-white/10 bg-transparent text-white hover:bg-white/5"
-                >
-                  Back
-                </Button>
-                <Button
-                  onClick={handlePaymentContinue}
-                  className="flex-1 h-10 rounded-none bg-primary text-black hover:bg-white"
-                >
-                  Open PayPal
-                  <ArrowRight className="ml-2 size-4" />
-                </Button>
-              </div>
-            </div>
-          </>
-        )}
-
-        {stage === "format" && (
-          <>
-            <DialogHeader>
-              <DialogTitle className="text-2xl font-black text-white uppercase tracking-tighter">
-                Choose Download Format
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-6">
-              {/* Recommended for your platform */}
-              {platformBinaries.length > 0 && (
-                <div>
-                  <p className="text-xs font-mono uppercase tracking-widest text-zinc-500 mb-3">
-                    Recommended for {platform}
-                  </p>
-                  <div className="space-y-2">
-                    {platformBinaries.map((binary) => (
-                      <button
-                        key={binary.name}
-                        onClick={() => handleSelectBinary(binary)}
-                        className="w-full text-left p-4 border border-white/10 bg-white/5 hover:border-primary hover:bg-primary/10 transition-all"
-                      >
-                        <p className="text-sm font-mono text-white truncate">
-                          {binary.name}
-                        </p>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* AUR Options for Linux */}
-              {platform === "Linux" && (
-                <div>
-                  <p className="text-xs font-mono uppercase tracking-widest text-zinc-500 mb-3">
-                    Arch Linux (AUR)
-                  </p>
-                  <div className="space-y-2">
-                    <CopyableCommand command="yay sonixy-bin" />
-                    <CopyableCommand command="yay sonixy-git" />
-                  </div>
-                </div>
-              )}
-
-              {/* Other formats */}
-              {otherBinaries.length > 0 && (
-                <div>
-                  <button
-                    onClick={() => setShowOther(!showOther)}
-                    className="w-full flex items-center justify-between text-xs font-mono uppercase tracking-widest text-zinc-500 hover:text-zinc-300 transition-colors py-3 border-b border-white/5"
-                  >
-                    <span>Other Formats ({otherBinaries.length})</span>
-                    <ChevronDown
-                      className={`size-4 transition-transform ${
-                        showOther ? "rotate-180" : ""
-                      }`}
-                    />
-                  </button>
-
-                  {showOther && (
-                    <div className="space-y-2 mt-3">
-                      {otherBinaries.map((binary) => (
-                        <button
-                          key={binary.name}
-                          onClick={() => handleSelectBinary(binary)}
-                          className="w-full text-left p-4 border border-white/10 bg-transparent hover:border-primary/50 hover:bg-white/5 transition-all"
-                        >
-                          <p className="text-sm font-mono text-zinc-400 truncate">
-                            {binary.name}
-                          </p>
-                          <p className="text-xs text-zinc-600 mt-1">
-                            {binary.category}
-                          </p>
-                        </button>
-                      ))}
+      <DialogContent className="w-full max-w-lg rounded-2xl border border-white/[0.08] bg-[#0a0a0a] p-0 overflow-hidden outline-none">
+        <motion.div
+          animate={{ height: contentHeight || "auto" }}
+          transition={{ type: "spring", stiffness: 400, damping: 30, mass: 1 }}
+          className="relative overflow-hidden"
+        >
+          <div ref={contentRef}>
+            <AnimatePresence mode="popLayout" initial={false}>
+              <motion.div
+                key={stage}
+                initial={{ opacity: 0, scale: 0.96, filter: "blur(4px)" }}
+                animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
+                exit={{ opacity: 0, scale: 0.96, filter: "blur(4px)" }}
+                transition={{ duration: 0.2, ease: "easeInOut" }}
+                className="p-8 w-full"
+              >
+                {/* ── Amount ── */}
+                {stage === "amount" && (
+                  <>
+                    <DialogHeader>
+                      <DialogTitle className="text-xl font-semibold text-white tracking-tight">
+                        Support Sonixy
+                      </DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-6 mt-4">
+                      <p className="text-[14px] text-white/40">
+                        Pay what you want. Every bit helps keep development going.
+                      </p>
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-2 gap-2">
+                          {[
+                            { label: "Free", value: 0 },
+                            { label: "$3",   value: 3 },
+                            { label: "$7",   value: 7 },
+                            { label: "$15",  value: 15 },
+                          ].map((chip) => (
+                            <button
+                              key={chip.value}
+                              onClick={() => { setAmount(chip.value); setCustomAmount(""); }}
+                              className={`py-2.5 px-4 text-[14px] font-medium rounded-xl transition-all border ${
+                                amount === chip.value && !customAmount
+                                  ? "border-white bg-white text-black"
+                                  : "border-white/[0.08] bg-white/[0.04] text-white hover:bg-white/[0.08]"
+                              }`}
+                            >
+                              {chip.label}
+                            </button>
+                          ))}
+                        </div>
+                        <div>
+                          <label className="block text-[12px] text-white/30 mb-2">Custom amount</label>
+                          <div className="flex items-center gap-2 border border-white/[0.08] rounded-xl px-4 bg-white/[0.03] focus-within:border-white/20 transition-colors">
+                            <span className="text-white/30 text-[14px]">$</span>
+                            <Input
+                              type="number"
+                              placeholder="0.00"
+                              value={customAmount}
+                              onChange={(e) => { setCustomAmount(e.target.value); setAmount(null); }}
+                              min="0"
+                              step="0.01"
+                              className="border-0 bg-transparent px-0 py-2.5 text-[14px] text-white placeholder:text-white/20 focus-visible:ring-0 focus-visible:ring-offset-0"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex gap-3 pt-2">
+                        <Button onClick={() => onOpenChange(false)} className="flex-1 h-10 rounded-xl border border-white/[0.08] bg-transparent text-white hover:bg-white/[0.05]">
+                          Cancel
+                        </Button>
+                        <Button onClick={handleAmountContinue} disabled={amount === null && !customAmount} className="flex-1 h-10 rounded-xl bg-white text-black hover:bg-white/90 disabled:opacity-40">
+                          Continue <ArrowRight className="ml-2 size-4" />
+                        </Button>
+                      </div>
                     </div>
-                  )}
-                </div>
-              )}
+                  </>
+                )}
 
-              <div className="flex gap-3 pt-4">
-                <Button
-                  onClick={() => {
-                    setStage(finalAmount && finalAmount > 0 ? "payment" : "amount");
-                  }}
-                  className="flex-1 h-10 rounded-none border border-white/10 bg-transparent text-white hover:bg-white/5"
-                >
-                  Back
-                </Button>
-              </div>
-            </div>
-          </>
-        )}
+                {/* ── Payment ── */}
+                {stage === "payment" && (
+                  <>
+                    <DialogHeader>
+                      <DialogTitle className="text-xl font-semibold text-white tracking-tight">
+                        Complete Payment
+                      </DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-6 mt-4">
+                      <div className="rounded-xl border border-white/[0.08] bg-white/[0.04] p-4">
+                        <p className="text-[14px] text-white/60">
+                          Open PayPal to complete your ${finalAmount} payment. You'll return here to choose your download format.
+                        </p>
+                      </div>
+                      <div className="flex gap-3">
+                        <Button onClick={() => setStage("amount")} className="flex-1 h-10 rounded-xl border border-white/[0.08] bg-transparent text-white hover:bg-white/[0.05]">
+                          Back
+                        </Button>
+                        <Button onClick={handlePaymentContinue} className="flex-1 h-10 rounded-xl bg-white text-black hover:bg-white/90">
+                          Open PayPal <ArrowRight className="ml-2 size-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* ── Format ── */}
+                {stage === "format" && (
+                  <>
+                    <DialogHeader>
+                      <DialogTitle className="text-xl font-semibold text-white tracking-tight">
+                        Download
+                      </DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-5 mt-4">
+                      <div className="flex gap-1 p-1 rounded-xl bg-white/[0.04] border border-white/[0.06] relative">
+                        {OS_TABS.map(({ key, label, icon: Icon }) => {
+                          const isActive = activeOs === key;
+                          const isCurrent = key === platform;
+                          return (
+                            <button
+                              key={key}
+                              onClick={() => setActiveOs(key)}
+                              className={`flex-1 relative flex items-center justify-center gap-2 py-2 rounded-lg text-[13px] font-medium transition-all z-10 ${
+                                isActive ? "bg-white text-black" : "text-white/40 hover:text-white"
+                              }`}
+                            >
+                              <Icon className="size-3.5" />
+                              {label}
+                              {isCurrent && !isActive && <span className="size-1.5 rounded-full bg-white/30" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <div className="relative">
+                        <AnimatePresence mode="popLayout" initial={false}>
+                          <motion.div
+                            key={activeOs}
+                            initial={{ opacity: 0, filter: "blur(8px)" }}
+                            animate={{ opacity: 1, filter: "blur(0px)" }}
+                            exit={{ opacity: 0, filter: "blur(8px)" }}
+                            transition={{ duration: 0.2, ease: "easeInOut" }}
+                            className="space-y-1.5"
+                          >
+                            {!binaries ? (
+                              <p className="text-[13px] text-white/30 py-2">Loading…</p>
+                            ) : activeBinaries.length === 0 ? (
+                              <p className="text-[13px] text-white/30 py-2">No binaries available.</p>
+                            ) : (
+                              [...activeBinaries]
+                                .sort((a, b) => {
+                                  const aRec = isRecommended(a.name, activeOs);
+                                  const bRec = isRecommended(b.name, activeOs);
+                                  return aRec === bRec ? 0 : aRec ? -1 : 1;
+                                })
+                                .map((binary) => {
+                                  const rec = isRecommended(binary.name, activeOs);
+                                  return (
+                                    <button
+                                      key={binary.name}
+                                      onClick={() => handleSelectBinary(binary)}
+                                      className={`w-full flex items-center justify-between gap-4 px-4 py-3 rounded-xl border transition-colors group ${
+                                        rec
+                                          ? "border-white/20 bg-white/[0.07] hover:bg-white/[0.11]"
+                                          : "border-white/[0.08] bg-white/[0.04] hover:bg-white/[0.08]"
+                                      }`}
+                                    >
+                                      <span className="text-[13px] font-mono text-white truncate">{binary.name}</span>
+                                      <div className="flex items-center gap-2 shrink-0">
+                                        {rec && <Star className="size-3 text-white/40 fill-white/40" />}
+                                        <Download className="size-3.5 text-white/20 group-hover:text-white/60 transition-colors" />
+                                      </div>
+                                    </button>
+                                  );
+                                })
+                            )}
+                          </motion.div>
+                        </AnimatePresence>
+                      </div>
+
+                      <div>
+                        {activeOs === "Linux" && (
+                          <div className="mt-4">
+                            <p className="text-[12px] text-white/30 mb-2">Arch Linux (AUR)</p>
+                            <div className="space-y-1.5">
+                              <CopyableCommand command="yay -S sonixy-bin" />
+                              <CopyableCommand command="yay -S sonixy-git" />
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="flex gap-3 pt-4">
+                          <Button
+                            onClick={() => setStage(finalAmount && finalAmount > 0 ? "payment" : "amount")}
+                            className="flex-1 h-10 rounded-xl border border-white/[0.08] bg-transparent text-white hover:bg-white/[0.05]"
+                          >
+                            Back
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </motion.div>
+            </AnimatePresence>
+          </div>
+        </motion.div>
       </DialogContent>
     </Dialog>
   );

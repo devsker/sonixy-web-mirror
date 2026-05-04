@@ -24,7 +24,7 @@ export async function GET(request: Request) {
 
       if (name.includes("-linux") || name.includes("linux_amd64") || name.endsWith(".deb") || name.endsWith(".rpm")) {
         categorized.Linux.push({ ...asset, category: "Linux" });
-      } else if (name.includes("-macos") || name.includes(".dmg")) {
+      } else if (name.includes("-macos") || name.includes("macos") || name.includes("-mac") || name.includes("_mac") || name.includes(".dmg")) {
         categorized.macOS.push({ ...asset, category: "macOS" });
       } else if (name.includes("-windows") || name.includes("windows_amd64") || name.endsWith(".exe") || name.endsWith(".msi")) {
         categorized.Windows.push({ ...asset, category: "Windows" });
