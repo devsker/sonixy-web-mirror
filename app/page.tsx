@@ -423,7 +423,7 @@ export default function Home() {
 
       <footer className="px-8 py-6">
         <div className="max-w-6xl mx-auto flex items-center justify-center">
-          <a href="https://sker.codeberg.page" className="text-[12px] text-white/20 hover:text-white/40 transition-colors">
+          <a href="https://sker.lol" className="text-[12px] text-white/20 hover:text-white/40 transition-colors">
             by sker
           </a>
         </div>
